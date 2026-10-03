@@ -1,0 +1,211 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  USER
+  HOST
+  OWNER
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum StationStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}
+
+enum ChargerStatus {
+  AVAILABLE
+  OCCUPIED
+  OFFLINE
+  MAINTENANCE
+}
+
+enum ConnectorType {
+  CCS2
+  TYPE2
+  CHAdeMO
+  GB_T
+  OTHER
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  EXPIRED
+}
+
+enum SessionStatus {
+  INITIATED
+  CHARGING
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model User {
+  id           String     @id @default(cuid())
+  name         String
+  email        String     @unique
+  passwordHash String
+  phone        String?
+  role         UserRole   @default(USER)
+  status       UserStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bookings Booking[]
+  sessions ChargingSession[]
+  stations Station[]
+}
+
+model Station {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  address     String
+  city        String
+  state       String
+  pincode     String?
+  latitude    Float
+  longitude   Float
+  status      StationStatus @default(ACTIVE)
+
+  hostId String
+  host   User   @relation(fields: [hostId], references: [id])
+
+  chargers Charger[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  bookings  Booking[]
+
+  @@index([city])
+  @@index([latitude, longitude])
+  @@index([hostId])
+}
+
+model Charger {
+  id        String  @id @default(cuid())
+  stationId String
+  station   Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  name    String
+  powerKw Float
+  status  ChargerStatus @default(AVAILABLE)
+
+  connectors Connector[]
+  sessions   ChargingSession[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  bookings  Booking[]
+
+  @@index([stationId])
+}
+
+model Connector {
+  id        String  @id @default(cuid())
+  chargerId String
+  charger   Charger @relation(fields: [chargerId], references: [id], onDelete: Cascade)
+
+  type        ConnectorType
+  maxPowerKw  Float
+  pricePerKwh Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([chargerId])
+}
+
+model Booking {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  stationId String
+  station   Station @relation(fields: [stationId], references: [id])
+
+  chargerId String
+  charger   Charger @relation(fields: [chargerId], references: [id])
+
+  startTime DateTime
+  endTime   DateTime
+  status    BookingStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  session ChargingSession?
+
+  @@index([userId])
+  @@index([stationId])
+  @@index([chargerId])
+  @@index([startTime])
+}
+
+model ChargingSession {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  chargerId String
+  charger   Charger @relation(fields: [chargerId], references: [id])
+
+  bookingId String?  @unique
+  booking   Booking? @relation(fields: [bookingId], references: [id])
+
+  startTime   DateTime
+  endTime     DateTime?
+  energyKwh   Float?
+  totalAmount Float?
+
+  status SessionStatus @default(INITIATED)
+
+  payment Payment?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([chargerId])
+}
+
+model Payment {
+  id String @id @default(cuid())
+
+  sessionId String          @unique
+  session   ChargingSession @relation(fields: [sessionId], references: [id])
+
+  amount   Float
+  currency String        @default("INR")
+  status   PaymentStatus @default(PENDING)
+
+  transactionId String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
