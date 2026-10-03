@@ -76,3 +76,29 @@ export const resetPasswordSchema = z.object({
     .min(8, "Password must be at least 8 characters long")
     .max(100, "Password must not exceed 100 characters"),
 });
+
+export const requestPhoneOtpSchema = z.object({
+  phone: z
+    .string()
+    .trim()
+    .regex(/^\+?[1-9]\d{9,14}$/, "Please provide a valid phone number"),
+});
+
+export const verifyPhoneOtpSchema = z.object({
+  phone: z
+    .string()
+    .trim()
+    .regex(/^\+?[1-9]\d{9,14}$/, "Please provide a valid phone number"),
+
+  otp: z
+    .string()
+    .length(6, "OTP must be exactly 6 digits")
+    .regex(/^\d{6}$/, "OTP must contain only numbers"),
+
+  name: z
+    .string()
+    .trim()
+    .min(2, "Name must be at least 2 characters long")
+    .max(100, "Name must not exceed 100 characters")
+    .optional(),
+});

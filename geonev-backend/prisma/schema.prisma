@@ -209,3 +209,36 @@ model Payment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model PasswordResetOtp {
+  id        String   @id @default(cuid())
+  email     String
+  otpHash   String
+  expiresAt DateTime
+  verified  Boolean  @default(false)
+  attempts  Int      @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([expiresAt])
+}
+
+enum OtpPurpose {
+  LOGIN
+}
+
+model PhoneOtp {
+  id        String     @id @default(cuid())
+  phone     String
+  otpHash   String
+  purpose   OtpPurpose @default(LOGIN)
+  expiresAt DateTime
+  attempts  Int        @default(0)
+  verified  Boolean    @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([phone])
+  @@index([expiresAt])
+}
