@@ -55,7 +55,7 @@ export default function Hero() {
             <span className="relative whitespace-nowrap">
               
               <span className="relative z-10">
-                EV charging
+                EV 
               </span>
 
               <span className="absolute bottom-1 left-0 right-0 -z-0 h-3 bg-[#FFB800]/50" />
