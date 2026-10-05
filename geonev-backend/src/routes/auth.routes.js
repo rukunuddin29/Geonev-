@@ -1,0 +1,15 @@
+import { Router } from "express";
+import { register, login, googleLogin, sendOtp, verifyOtp, forgotPassword, resetPassword, me, } from "../controllers/auth.controller";
+import { validate } from "../middleware/validate.middleware";
+import { authenticate } from "../middleware/auth.middleware";
+import { registerSchema, loginSchema, googleSchema, sendOtpSchema, verifyOtpSchema, forgotPasswordSchema, resetPasswordSchema, } from "../validators/auth.validator";
+const router = Router();
+router.post("/register", validate(registerSchema), register);
+router.post("/login", validate(loginSchema), login);
+router.post("/google", validate(googleSchema), googleLogin);
+router.post("/whatsapp/send-otp", validate(sendOtpSchema), sendOtp);
+router.post("/whatsapp/verify-otp", validate(verifyOtpSchema), verifyOtp);
+router.post("/forgot-password", validate(forgotPasswordSchema), forgotPassword);
+router.post("/reset-password", validate(resetPasswordSchema), resetPassword);
+router.get("/me", authenticate, me);
+export default router;

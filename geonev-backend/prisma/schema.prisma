@@ -6,239 +6,143 @@ datasource db {
   provider = "postgresql"
 }
 
+// =========================
+// ENUMS
+// =========================
+
 enum UserRole {
   USER
   HOST
-  OWNER
 }
 
-enum UserStatus {
-  ACTIVE
-  SUSPENDED
-  DELETED
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+  WHATSAPP
 }
 
-enum StationStatus {
-  ACTIVE
-  INACTIVE
-  MAINTENANCE
+enum SpotType {
+  CAR
+  BIKE
+  TRUCK
+  EV_CHARGING
 }
 
-enum ChargerStatus {
-  AVAILABLE
-  OCCUPIED
-  OFFLINE
-  MAINTENANCE
+enum ChargerType {
+  NONE
+  AC
+  DC
+  BOTH
 }
 
-enum ConnectorType {
-  CCS2
-  TYPE2
-  CHAdeMO
-  GB_T
-  OTHER
-}
-
-enum BookingStatus {
-  PENDING
-  CONFIRMED
-  CANCELLED
-  COMPLETED
-  EXPIRED
-}
-
-enum SessionStatus {
-  INITIATED
-  CHARGING
-  COMPLETED
-  CANCELLED
-  FAILED
-}
-
-enum PaymentStatus {
-  PENDING
-  PAID
-  FAILED
-  REFUNDED
-}
+// =========================
+// USER
+// =========================
 
 model User {
-  id           String     @id @default(cuid())
+  id           String       @id @default(cuid())
   name         String
-  email        String     @unique
-  passwordHash String
-  phone        String?
-  role         UserRole   @default(USER)
-  status       UserStatus @default(ACTIVE)
+  email        String?      @unique
+  phone        String?      @unique
+  googleId     String?      @unique
+  passwordHash String?
+  role         UserRole     @default(USER)
+  provider     AuthProvider @default(LOCAL)
+  isVerified   Boolean      @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  bookings Booking[]
-  sessions ChargingSession[]
-  stations Station[]
+  // Auth relations
+  passwordResetTokens PasswordResetToken[]
+  otpRecords          OtpRecord[]
+
+  // Parking relation
+  parkings Parking[]
 }
 
-model Station {
-  id          String        @id @default(cuid())
-  name        String
-  description String?
-  address     String
-  city        String
-  state       String
-  pincode     String?
-  latitude    Float
-  longitude   Float
-  status      StationStatus @default(ACTIVE)
+// =========================
+// PASSWORD RESET
+// =========================
 
-  hostId String
-  host   User   @relation(fields: [hostId], references: [id])
-
-  chargers Charger[]
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  bookings  Booking[]
-
-  @@index([city])
-  @@index([latitude, longitude])
-  @@index([hostId])
-}
-
-model Charger {
-  id        String  @id @default(cuid())
-  stationId String
-  station   Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
-
-  name    String
-  powerKw Float
-  status  ChargerStatus @default(AVAILABLE)
-
-  connectors Connector[]
-  sessions   ChargingSession[]
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  bookings  Booking[]
-
-  @@index([stationId])
-}
-
-model Connector {
-  id        String  @id @default(cuid())
-  chargerId String
-  charger   Charger @relation(fields: [chargerId], references: [id], onDelete: Cascade)
-
-  type        ConnectorType
-  maxPowerKw  Float
-  pricePerKwh Float
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([chargerId])
-}
-
-model Booking {
-  id String @id @default(cuid())
-
-  userId String
-  user   User   @relation(fields: [userId], references: [id])
-
-  stationId String
-  station   Station @relation(fields: [stationId], references: [id])
-
-  chargerId String
-  charger   Charger @relation(fields: [chargerId], references: [id])
-
-  startTime DateTime
-  endTime   DateTime
-  status    BookingStatus @default(PENDING)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  session ChargingSession?
-
-  @@index([userId])
-  @@index([stationId])
-  @@index([chargerId])
-  @@index([startTime])
-}
-
-model ChargingSession {
-  id String @id @default(cuid())
-
-  userId String
-  user   User   @relation(fields: [userId], references: [id])
-
-  chargerId String
-  charger   Charger @relation(fields: [chargerId], references: [id])
-
-  bookingId String?  @unique
-  booking   Booking? @relation(fields: [bookingId], references: [id])
-
-  startTime   DateTime
-  endTime     DateTime?
-  energyKwh   Float?
-  totalAmount Float?
-
-  status SessionStatus @default(INITIATED)
-
-  payment Payment?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId])
-  @@index([chargerId])
-}
-
-model Payment {
-  id String @id @default(cuid())
-
-  sessionId String          @unique
-  session   ChargingSession @relation(fields: [sessionId], references: [id])
-
-  amount   Float
-  currency String        @default("INR")
-  status   PaymentStatus @default(PENDING)
-
-  transactionId String? @unique
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model PasswordResetOtp {
+model PasswordResetToken {
   id        String   @id @default(cuid())
-  email     String
-  otpHash   String
+  token     String   @unique
   expiresAt DateTime
-  verified  Boolean  @default(false)
-  attempts  Int      @default(0)
+  used      Boolean  @default(false)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 
-  @@index([email])
-  @@index([expiresAt])
+  @@index([userId])
 }
 
-enum OtpPurpose {
-  LOGIN
-}
+// =========================
+// OTP
+// =========================
 
-model PhoneOtp {
-  id        String     @id @default(cuid())
+model OtpRecord {
+  id        String   @id @default(cuid())
   phone     String
   otpHash   String
-  purpose   OtpPurpose @default(LOGIN)
+  purpose   String
+  attempts  Int      @default(0)
   expiresAt DateTime
-  attempts  Int        @default(0)
-  verified  Boolean    @default(false)
+  used      Boolean  @default(false)
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 
-  @@index([phone])
-  @@index([expiresAt])
+  @@index([phone, purpose])
+  @@index([userId])
+}
+
+// =========================
+// PARKING / CHARGING STATION
+// =========================
+
+model Parking {
+  id String @id @default(cuid())
+
+  // Basic information
+  name    String
+  address String
+  city    String
+  state   String?
+
+  // Location
+  latitude  Float
+  longitude Float
+
+  // Parking / charging type
+  spotType     SpotType
+  totalSlots   Int
+  pricePerHour Float
+
+  // Charger information
+  chargerType ChargerType @default(NONE)
+  powerKw     Float?
+
+  // Media / facilities
+  images    String[]
+  amenities String[]
+
+  // Station status
+  isActive Boolean @default(true)
+
+  // Owner / host
+  hostId String
+  host   User   @relation(fields: [hostId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([city])
+  @@index([spotType])
+  @@index([hostId])
+  @@index([isActive])
 }

@@ -1,72 +1,35 @@
 import { Router } from "express";
-
 import {
   register,
   login,
-  me,
-  forgotPassword,
+  googleLogin,
+  sendOtp,
   verifyOtp,
-  resetPasswordController,
-  requestPhoneOtpController,
-  verifyPhoneOtpController,
+  forgotPassword,
+  resetPassword,
+  me,
 } from "../controllers/auth.controller";
-
 import { validate } from "../middleware/validate.middleware";
-
+import { authenticate } from "../middleware/auth.middleware";
 import {
   registerSchema,
   loginSchema,
-  forgotPasswordSchema,
+  googleSchema,
+  sendOtpSchema,
   verifyOtpSchema,
+  forgotPasswordSchema,
   resetPasswordSchema,
-  requestPhoneOtpSchema,
-  verifyPhoneOtpSchema,
 } from "../validators/auth.validator";
 
 const router = Router();
 
-router.post(
-  "/register",
-  validate(registerSchema),
-  register
-);
-
-router.post(
-  "/login",
-  validate(loginSchema),
-  login
-);
-
-router.post(
-  "/forgot-password",
-  validate(forgotPasswordSchema),
-  forgotPassword
-);
-
-router.post(
-  "/verify-otp",
-  validate(verifyOtpSchema),
-  verifyOtp
-);
-
-router.post(
-  "/reset-password",
-  validate(resetPasswordSchema),
-  resetPasswordController
-);
-
-/* PHONE OTP AUTH */
-
-router.post(
-  "/phone/request-otp",
-  validate(requestPhoneOtpSchema),
-  requestPhoneOtpController
-);
-
-router.post(
-  "/phone/verify-otp",
-  validate(verifyPhoneOtpSchema),
-  verifyPhoneOtpController
-);
+router.post("/register", validate(registerSchema), register);
+router.post("/login", validate(loginSchema), login);
+router.post("/google", validate(googleSchema), googleLogin);
+router.post("/whatsapp/send-otp", validate(sendOtpSchema), sendOtp);
+router.post("/whatsapp/verify-otp", validate(verifyOtpSchema), verifyOtp);
+router.post("/forgot-password", validate(forgotPasswordSchema), forgotPassword);
+router.post("/reset-password", validate(resetPasswordSchema), resetPassword);
+router.get("/me", authenticate, me);
 
 export default router;

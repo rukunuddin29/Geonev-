@@ -6,29 +6,19 @@ export default function ApiPage() {
   const [message, setMessage] = useState("Connecting to backend...");
 
   useEffect(() => {
-    async function testConnection() {
-      try {
-        const response = await fetch("http://localhost:7000/");
+    const base =
+      process.env.NEXT_PUBLIC_API_URL?.replace(/\/v1$/, "") ??
+      "http://localhost:5000/api";
 
-        const data = await response.text();
-
-        setMessage(data);
-      } catch (error) {
-        console.error(error);
-
-        setMessage("Backend connection failed");
-      }
-    }
-
-    testConnection();
+    fetch(`${base}/health`)
+      .then((r) => r.json())
+      .then((d) => setMessage(d.message))
+      .catch(() => setMessage("Backend connection failed"));
   }, []);
 
   return (
-    <div className="p-10">
-      <h1 className="text-3xl font-bold mb-5">
-        API Connection Test
-      </h1>
-
+    <div className="p-10 pt-32">
+      <h1 className="mb-5 text-3xl font-bold">API Connection Test</h1>
       <p>{message}</p>
     </div>
   );

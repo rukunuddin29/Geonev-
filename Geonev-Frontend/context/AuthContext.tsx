@@ -7,77 +7,121 @@ import {
   useState,
   ReactNode,
 } from "react";
-import api from "@/lib/api";
+import { api, tokenStore } from "@/lib/api";
 
-type Role = "ADMIN" | "OWNER" | "CUSTOMER";
+export type Role = "USER" | "HOST";
+export type SignupRole = Role;
 
-interface User {
+export interface AuthUser {
   id: string;
-  email: string;
-  phone: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
   role: Role;
+  provider: "LOCAL" | "GOOGLE" | "WHATSAPP";
+  isVerified: boolean;
+}
+
+export const isHostRole = (role?: Role) => role === "HOST";
+export const dashboardPathFor = (role: Role) =>
+  role === "HOST" ? "/host/dashboard" : "/dashboard";
+
+interface AuthResponse {
+  data: { user: AuthUser; token: string };
 }
 
 interface RegisterInput {
-  name?: string;
+  name: string;
   email: string;
   phone: string;
   password: string;
-  role: Role;
+  role: SignupRole;
 }
 
-interface AuthContextType {
-  user: User | null;
+interface AuthContextValue {
+  user: AuthUser | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (data: RegisterInput) => Promise<void>;
-  logout: () => Promise<void>;
+  login: (email: string, password: string) => Promise<AuthUser>;
+  register: (input: RegisterInput) => Promise<AuthUser>;
+  loginWithGoogle: (idToken: string, role?: SignupRole) => Promise<AuthUser>;
+  sendWhatsappOtp: (phone: string) => Promise<void>;
+  verifyWhatsappOtp: (
+    phone: string,
+    otp: string,
+    role?: SignupRole
+  ) => Promise<AuthUser>;
+  forgotPassword: (email: string) => Promise<string>;
+  resetPassword: (token: string, password: string) => Promise<string>;
+  logout: () => void;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Load the current user on mount (uses the cookie)
+  // Restore session on page load
   useEffect(() => {
-    (async () => {
+    const restore = async () => {
+      if (!tokenStore.get()) {
+        setLoading(false);
+        return;
+      }
       try {
-        const res = await api.get("/auth/me");
-        setUser(res.data?.data ?? res.data?.user ?? null);
+        const res = await api<{ data: { user: AuthUser } }>("/auth/me", {
+          auth: true,
+        });
+        setUser(res.data.user);
       } catch {
-        setUser(null);
+        tokenStore.clear();
       } finally {
         setLoading(false);
       }
-    })();
+    };
+    restore();
   }, []);
 
-  const login = async (email: string, password: string) => {
-    const res = await api.post("/auth/login", { email, password });
-    setUser(res.data?.data ?? res.data?.user ?? null);
+  const finish = (res: AuthResponse) => {
+    tokenStore.set(res.data.token);
+    setUser(res.data.user);
+    return res.data.user;
   };
 
-  const register = async (data: RegisterInput) => {
-    await api.post("/auth/register", data);
-    await login(data.email, data.password); // auto-login after signup
+  const value: AuthContextValue = {
+    user,
+    loading,
+    login: async (email, password) =>
+      finish(await api<AuthResponse>("/auth/login", { method: "POST", body: { email, password } })),
+    register: async (input) =>
+      finish(await api<AuthResponse>("/auth/register", { method: "POST", body: input })),
+    loginWithGoogle: async (idToken, role) =>
+      finish(await api<AuthResponse>("/auth/google", { method: "POST", body: { idToken, role } })),
+    sendWhatsappOtp: async (phone) => {
+      await api("/auth/whatsapp/send-otp", { method: "POST", body: { phone } });
+    },
+    verifyWhatsappOtp: async (phone, otp, role) =>
+      finish(
+        await api<AuthResponse>("/auth/whatsapp/verify-otp", {
+          method: "POST",
+          body: { phone, otp, role },
+        })
+      ),
+    forgotPassword: async (email) =>
+      (await api<{ message: string }>("/auth/forgot-password", { method: "POST", body: { email } })).message,
+    resetPassword: async (token, password) =>
+      (await api<{ message: string }>("/auth/reset-password", { method: "POST", body: { token, password } })).message,
+    logout: () => {
+      tokenStore.clear();
+      setUser(null);
+    },
   };
 
-  const logout = async () => {
-    await api.post("/auth/logout");
-    setUser(null);
-  };
-
-  return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+  if (!ctx) throw new Error("useAuth must be used inside <AuthProvider>");
   return ctx;
 }

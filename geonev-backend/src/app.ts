@@ -1,17 +1,11 @@
 import express from "express";
-import authRoutes from "./routes/auth.routes";
+import cors from "cors";
+import routes from "./routes";
 
 const app = express();
 
+app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:3000" }));
 app.use(express.json());
-
-app.get("/api/health", (_req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "Geonev backend is running",
-  });
-});
-
-app.use("/api/v1/auth", authRoutes);
+app.use("/api", routes); // routes/index.ts should do: router.use("/auth", authRoutes)
 
 export default app;

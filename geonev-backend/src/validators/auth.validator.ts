@@ -1,104 +1,41 @@
 import { z } from "zod";
 
+const role = z.enum(["USER", "HOST"]).optional();
+
 export const registerSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(2, "Name must be at least 2 characters long")
-    .max(100, "Name must not exceed 100 characters"),
-
-  email: z
-    .string()
-    .trim()
-    .email("Please provide a valid email address")
-    .toLowerCase(),
-
-  password: z
-    .string()
-    .min(8, "Password must be at least 8 characters long")
-    .max(100, "Password must not exceed 100 characters"),
-
-  phone: z
-    .string()
-    .trim()
-    .min(10, "Phone number must be at least 10 characters long")
-    .max(15, "Phone number must not exceed 15 characters")
-    .optional(),
+  name: z.string().trim().min(2, "Name must be at least 2 characters"),
+  email: z.string().trim().email("Enter a valid email"),
+  phone: z.string().trim().min(10, "Phone number must be at least 10 digits"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  role,
 });
 
 export const loginSchema = z.object({
-  email: z
-    .string()
-    .trim()
-    .email("Please provide a valid email address")
-    .toLowerCase(),
-
-  password: z
-    .string()
-    .min(1, "Password is required"),
+  email: z.string().trim().email("Enter a valid email"),
+  password: z.string().min(1, "Password is required"),
 });
 
-export const forgotPasswordSchema = z.object({
-  email: z
-    .string()
-    .trim()
-    .email("Please provide a valid email address")
-    .toLowerCase(),
+export const googleSchema = z.object({
+  idToken: z.string().min(10, "Google token missing"),
+  role,
+});
+
+export const sendOtpSchema = z.object({
+  phone: z.string().trim().min(10, "Enter a valid phone number"),
 });
 
 export const verifyOtpSchema = z.object({
-  email: z
-    .string()
-    .trim()
-    .email("Please provide a valid email address")
-    .toLowerCase(),
+  phone: z.string().trim().min(10, "Enter a valid phone number"),
+  otp: z.string().trim().length(6, "OTP must be 6 digits"),
+  name: z.string().trim().min(2).optional(),
+  role,
+});
 
-  otp: z
-    .string()
-    .length(6, "OTP must be exactly 6 digits")
-    .regex(/^\d+$/, "OTP must contain only numbers"),
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().email("Enter a valid email"),
 });
 
 export const resetPasswordSchema = z.object({
-  email: z
-    .string()
-    .trim()
-    .email("Please provide a valid email address")
-    .toLowerCase(),
-
-  otp: z
-    .string()
-    .length(6, "OTP must be exactly 6 digits")
-    .regex(/^\d+$/, "OTP must contain only numbers"),
-
-  newPassword: z
-    .string()
-    .min(8, "Password must be at least 8 characters long")
-    .max(100, "Password must not exceed 100 characters"),
-});
-
-export const requestPhoneOtpSchema = z.object({
-  phone: z
-    .string()
-    .trim()
-    .regex(/^\+?[1-9]\d{9,14}$/, "Please provide a valid phone number"),
-});
-
-export const verifyPhoneOtpSchema = z.object({
-  phone: z
-    .string()
-    .trim()
-    .regex(/^\+?[1-9]\d{9,14}$/, "Please provide a valid phone number"),
-
-  otp: z
-    .string()
-    .length(6, "OTP must be exactly 6 digits")
-    .regex(/^\d{6}$/, "OTP must contain only numbers"),
-
-  name: z
-    .string()
-    .trim()
-    .min(2, "Name must be at least 2 characters long")
-    .max(100, "Name must not exceed 100 characters")
-    .optional(),
+  token: z.string().min(10, "Reset token missing"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
 });
