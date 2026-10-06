@@ -1,11 +1,23 @@
+
 import express from "express";
 import cors from "cors";
 import routes from "./routes";
 
 const app = express();
 
-app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:3000" }));
+const frontendUrl =
+  process.env.FRONTEND_URL || "http://localhost:3000";
+
+app.use(
+  cors({
+    origin: frontendUrl,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
 app.use(express.json());
-app.use("/api", routes); // routes/index.ts should do: router.use("/auth", authRoutes)
+
+app.use("/api", routes);
 
 export default app;
