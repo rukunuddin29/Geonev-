@@ -35,6 +35,20 @@ enum ChargerType {
   BOTH
 }
 
+enum BookingStatus {
+  PENDING // waiting for host approval
+  CONFIRMED
+  COMPLETED
+  CANCELLED // cancelled by the user or the host
+  REJECTED // declined by the host
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+}
+
 // =========================
 // USER
 // =========================
@@ -57,8 +71,11 @@ model User {
   passwordResetTokens PasswordResetToken[]
   otpRecords          OtpRecord[]
 
-  // Parking relation
-  parkings Parking[]
+  // Parking relations
+  parkings  Parking[]
+  bookings  Booking[]
+  reviews   Review[]
+  favorites Favorite[]
 }
 
 // =========================
@@ -109,10 +126,12 @@ model Parking {
   id String @id @default(cuid())
 
   // Basic information
-  name    String
-  address String
-  city    String
-  state   String?
+  name        String
+  description String?
+  address     String
+  city        String
+  state       String?
+  pincode     String?
 
   // Location
   latitude  Float
@@ -122,14 +141,28 @@ model Parking {
   spotType     SpotType
   totalSlots   Int
   pricePerHour Float
+  pricePerDay  Float? // optional daily cap
 
   // Charger information
-  chargerType ChargerType @default(NONE)
-  powerKw     Float?
+  chargerType    ChargerType @default(NONE)
+  powerKw        Float?
+  connectorTypes String[] // e.g. CCS2, Type2, CHAdeMO
 
   // Media / facilities
   images    String[]
   amenities String[]
+
+  // Opening hours (HH:MM, 24h)
+  isOpen24x7 Boolean @default(true)
+  openTime   String?
+  closeTime  String?
+
+  // Booking behaviour: true = auto-confirm, false = host must approve
+  instantBooking Boolean @default(true)
+
+  // Denormalised rating (kept in sync by the review controller)
+  avgRating   Float @default(0)
+  reviewCount Int   @default(0)
 
   // Station status
   isActive Boolean @default(true)
@@ -138,6 +171,10 @@ model Parking {
   hostId String
   host   User   @relation(fields: [hostId], references: [id], onDelete: Cascade)
 
+  bookings  Booking[]
+  reviews   Review[]
+  favorites Favorite[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -145,4 +182,84 @@ model Parking {
   @@index([spotType])
   @@index([hostId])
   @@index([isActive])
+  @@index([latitude, longitude])
+  @@index([pricePerHour])
+  @@index([avgRating])
+}
+
+// =========================
+// BOOKING
+// =========================
+
+model Booking {
+  id String @id @default(cuid())
+
+  startTime DateTime
+  endTime   DateTime
+  hours     Float
+  totalPrice Float
+
+  status        BookingStatus @default(PENDING)
+  paymentStatus PaymentStatus @default(UNPAID)
+
+  vehicleNumber String?
+  note          String?
+  cancelledAt   DateTime?
+
+  parkingId String
+  parking   Parking @relation(fields: [parkingId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  review Review?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([parkingId, startTime, endTime])
+  @@index([userId])
+  @@index([status])
+}
+
+// =========================
+// REVIEW
+// =========================
+
+model Review {
+  id      String  @id @default(cuid())
+  rating  Int // 1..5
+  comment String?
+
+  parkingId String
+  parking   Parking @relation(fields: [parkingId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  bookingId String?  @unique
+  booking   Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([parkingId, userId])
+  @@index([parkingId])
+}
+
+// =========================
+// FAVORITE
+// =========================
+
+model Favorite {
+  userId    String
+  parkingId String
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parking Parking @relation(fields: [parkingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([userId, parkingId])
+  @@index([parkingId])
 }

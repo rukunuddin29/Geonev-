@@ -3,23 +3,25 @@ import cors from "cors";
 import routes from "./routes";
 import parkingRoutes from "./routes/parking.routes";
 import hostParkingRoutes from "./routes/host.parking.routes";
+import bookingRoutes, { hostBookingRouter } from "./routes/booking.routes";
 
 const app = express();
 
+// Strip whitespace and trailing slashes so a stray "/" in the env var can't break CORS.
 const normalize = (url: string) => url.trim().replace(/\/+$/, "");
 
 const allowedOrigins = [
-  process.env.FRONTEND_URL,
+  ...(process.env.FRONTEND_URL ?? "").split(","), // supports comma-separated list
   "http://localhost:3000",
   "http://localhost:5173",
 ]
-  .filter((u): u is string => Boolean(u))
-  .map(normalize);
+  .map(normalize)
+  .filter(Boolean);
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // allow non-browser tools (curl, Postman) that send no Origin
+      // Allow non-browser clients (curl, Postman, server-to-server) with no Origin header.
       if (!origin || allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
@@ -27,14 +29,22 @@ app.use(
     },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true, // only needed if you use cookies; harmless otherwise
+    credentials: true,
   })
 );
 
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
+
+app.get("/health", (_req, res) => {
+  res.status(200).json({ success: true, status: "ok" });
+});
 
 app.use("/api", routes);
+
 app.use("/api/parkings", parkingRoutes);
+app.use("/api/bookings", bookingRoutes);
+
 app.use("/api/host/parkings", hostParkingRoutes);
+app.use("/api/host/bookings", hostBookingRouter);
 
 export default app;
